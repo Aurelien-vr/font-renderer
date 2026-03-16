@@ -48,3 +48,4 @@ build/
 # vim session
 *.vim
 *.nvim
+*.vscode

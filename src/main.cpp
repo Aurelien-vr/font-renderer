@@ -73,7 +73,7 @@ int main() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     // 2. then draw
-    font.auDraw("1");
+    font.auDraw("x");
 
     glfwSwapBuffers(window);
     glfwPollEvents();

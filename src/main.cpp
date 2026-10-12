@@ -41,10 +41,9 @@ int main() {
   std::optional<double> currentTimeStamp;
   float fps = 0;
 
-  auFontRendering font = auFontRendering(window, {0, 0}, 98, {1, 1, 1});
+  auFontRendering font = auFontRendering(window, {0, 0}, 198, {1, 1, 1});
   font.loadFont();
 
-  // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   // while (!glfwWindowShouldClose(window)) {
   //
   //   // fps conter
@@ -72,8 +71,10 @@ int main() {
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
     // 2. then draw
-    font.auDraw("x");
+    font.auDraw("B");
 
     glfwSwapBuffers(window);
     glfwPollEvents();

@@ -9,8 +9,12 @@
 
 class auCharacter {
 public:
-  std::vector<FT_Vector_> verticies;
-  std::vector<FT_Vector_> verticiesTriangles;
+  /*
+   * VARIABLE
+   */
+
+  std::vector<FT_Vector_> vertices;
+  std::vector<FT_Vector_> verticesTriangles;
   std::vector<FT_Vector_> outerContour;
   std::vector<short> outlineEnd;
   std::vector<std::vector<FT_Vector_>> innerContours;
@@ -20,17 +24,29 @@ public:
   FT_Face face;
   short resolution;
 
+  /*
+   * FUNCTIONs
+   */
+
   auCharacter(FT_Face face, short resolution);
 
   void setResolution();
 
-  void setVerticies(int size, auVector2 position, float space);
+  void setVertices(int size, auVector2 position, float space);
+
   void setOutlineEnd();
-  int getSize() { return verticies.size(); };
+
+  int getSize() { return vertices.size(); };
 
 private:
+  /*
+   * MAIN FUNCTION
+r a valid ear, you typically need points to NOT be inside the triangle
+   */
+
   std::vector<FT_Vector_> bezierPoints(float interval, FT_Vector_ start,
                                        FT_Vector_ end, FT_Vector_ pivot);
+
   long lerp(float a, float b, float f);
 
   void triangulation(std::vector<FT_Vector_> outerVertices,
@@ -41,17 +57,54 @@ private:
   bridge(std::vector<FT_Vector_> outerVertices,
          std::vector<std::vector<FT_Vector_>> listInerPolygon);
 
-  void earClipping(std::vector<FT_Vector_> vertices);
+  void earClipping(std::vector<FT_Vector_> vertices,
+                   std::vector<FT_Vector_> &triangleOutput);
+
+  ulong findEar(std::vector<FT_Vector_> vertices);
+
+  /*
+   * HELPER FUNCTION
+   */
 
   float distance(FT_Vector_ a, FT_Vector_ b);
-  // This function return a negative value if the verticies of the subOutline is
+
+  // This function return a negative value if the vertices of the subOutline is
   // clockwise and a positive value is conterclockwise
   float shoelace(FT_Vector *points, int count);
+
+  // Compute the area of a triangle
   float area(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c);
+
+  // Return True if P is inside the triangle ABC (ABC and P are points not
+  // index)
   bool isInsideTriangle(FT_Vector_ A, FT_Vector_ B, FT_Vector_ C, FT_Vector_ P);
+
+  // Return true if a points of polygone is inside the triable i-1, i, i+1
+  bool isPointsInsideTriangle(const std::vector<FT_Vector_> &polygon, int i);
+
   float angleBetweenAtM(FT_Vector_ M, FT_Vector_ I, FT_Vector_ R);
+
   // Take refference of the polygone vector and the index of the angle we want
   // the information for
   bool isReflexOuterVertex(const std::vector<FT_Vector_> &outer, int i);
+
+  // Use intersect to knwo if a segment i-1 and i+1 intersect with any edge of
+  // the polygone
   bool intersectWithPolygone(const std::vector<FT_Vector_> &polygone, int i);
+
+  // Check if the segment i-1 and i+1 is inside the polygone
+  bool isFullyInsidePolygone(const std::vector<FT_Vector_> &polygone, int i);
+
+  // Return true if a vertices of "polygone" is inside the triangle i-1, i, i+1
+  bool isVerticesInside(const std::vector<FT_Vector_> &polygone, int i);
+
+  // return if there is a proper intersection and does not account for
+  // degenernecy (used in intersect)
+  bool intersectProp(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c, FT_Vector_ d);
+  // Return true if AB and CD intersect
+  bool intersect(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c, FT_Vector_ d);
+
+  bool collinear(FT_Vector_ *a, FT_Vector_ *b, FT_Vector_ *c);
+
+  bool between(FT_Vector_ *a, FT_Vector_ *b, FT_Vector_ *c);
 };

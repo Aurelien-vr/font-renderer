@@ -49,3 +49,8 @@ build/
 *.vim
 *.nvim
 *.vscode
+
+# vim swap files
+*.swp
+*.swo
+*.swx

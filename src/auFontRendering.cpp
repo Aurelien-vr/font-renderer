@@ -80,15 +80,15 @@ void auFontRendering::loadFont() {
     listCharacters.push_back(chara);
 
     // Put the verticies of the character inside a large list for the VBO
-    for (FT_Vector_ point : chara.verticies) {
+    for (FT_Vector_ point : chara.verticesTriangles) {
       sentence.push_back(point.x);
       sentence.push_back(point.y);
     }
 
     cmdBuffer.push_back(
-        {uint32_t(chara.verticies.size()), 1, uint32_t(offset), 0, 0});
+        {uint32_t(chara.verticesTriangles.size()), 1, uint32_t(offset), 0, 0});
 
-    offset += chara.verticies.size();
+    offset += chara.verticesTriangles.size();
   }
 
   vao = new VAO();
@@ -117,7 +117,7 @@ void auFontRendering::loadFont() {
   ebo->Unbind();
   dib->Unbind();
 
-  // for (FT_Vector_ point : listCharacters[66].verticies) {
+  // for (FT_Vector_ point : listCharacters[66].verticies) {aufont
   //   std::cout << "List Chara: " << point.x << " | " << point.y << std::endl;
   // }
   //
@@ -135,7 +135,7 @@ int auFontRendering::auDraw(std::string letter) {
   dib->Bind();
   for (char c : letter) {
     glMultiDrawElementsIndirect(
-        GL_LINE_LOOP, GL_UNSIGNED_INT,
+        GL_TRIANGLES, GL_UNSIGNED_INT,
         (void *)(static_cast<int>(c) * sizeof(DrawElementsIndirectCommand)), 1,
         sizeof(DrawElementsIndirectCommand));
   }

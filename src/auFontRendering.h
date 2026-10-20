@@ -3,6 +3,7 @@
 #include "DrawElementsIndirectCommand.h"
 #include "Shader.h"
 #include "auCharacter.h"
+#include <freetype/ftimage.h>
 #include <ft2build.h>
 #include <string>
 #include <vector>
@@ -21,28 +22,9 @@
 
 class auFontRendering {
 public:
-  auVector2 position;
-  int size;
-  auColor color;
-
-  int screenHeight, screenWidth;
-
-  VAO *vao = nullptr;
-  VBO *vbo = nullptr;
-  EBO *ebo = nullptr;
-  DIB *dib = nullptr;
-
   GLFWwindow *window;
   Shader shaders;
 
-  // All the verticies of all the glyph to draw
-  // Needed to send all the data at once to the VBO
-  std::vector<float> sentence;
-
-  // Liste of the characters containing the data for the drawing as a list of
-  // object auCharacters
-  std::vector<auCharacter> listCharacters;
-  std::vector<DrawElementsIndirectCommand> cmdBuffer;
   auFontRendering(GLFWwindow *window, auVector2 position, int size,
                   auColor color);
   ~auFontRendering();
@@ -53,6 +35,29 @@ public:
   int auDraw(std::string letter);
 
 private:
+  int size;
+  auVector2 position;
+  auColor color;
+
+  int screenHeight, screenWidth;
+
+  FT_Vector_ offsetBuffer{0, 0};
+
+  VAO *vao = nullptr;
+  VBO *vbo = nullptr;
+  EBO *ebo = nullptr;
+  DIB *dib = nullptr;
+
+  // All the verticies of all the glyph to draw
+  // Needed to send all the data at once to the VBO
+  std::vector<float> sentence;
+
+  // Liste of the characters containing the data for the drawing as a list of
+  // object auCharacters
+  std::vector<auCharacter> listCharacters;
+  std::vector<FT_Vector_> listOffset;
+  std::vector<DrawElementsIndirectCommand> cmdBuffer;
+
   FT_Library library;
   FT_Face face;
 

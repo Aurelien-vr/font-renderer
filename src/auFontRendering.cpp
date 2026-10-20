@@ -10,13 +10,14 @@
 #include "liberation_sans.h"
 
 #include <GLFW/glfw3.h>
+#include <cstddef>
 #include <freetype/ftimage.h>
 #include <numeric>
 #include <vector>
 
 auFontRendering::auFontRendering(GLFWwindow *window, auVector2 position,
                                  int size, auColor color)
-    : position(position), size(size), color(color), window(window),
+    : window(window), position(position), size(size), color(color),
       shaders("../src/ressources/default.vert",
               "../src/ressources/default.frag") {
 
@@ -57,7 +58,8 @@ int auFontRendering::auLoadFace(std::string path) {
 
 int auFontRendering::getGlyph(FT_ULong charcode) {
   FT_UInt index = FT_Get_Char_Index(face, charcode);
-  return FT_Load_Glyph(face, index, FT_LOAD_NO_BITMAP);
+  return FT_Load_Glyph(
+      face, index, FT_LOAD_NO_BITMAP | FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING);
 }
 
 void auFontRendering::loadFont() {
@@ -68,10 +70,15 @@ void auFontRendering::loadFont() {
 
   glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
 
-  for (unsigned char c = 0; c < 127; c++) {
+  for (FT_ULong c = 0; c < 127; c++) {
     // Set the face in the variable face
     // It is then pass to the character to retrive the outline points
     getGlyph(c);
+
+    if (face != NULL) {
+      listOffset.push_back(face->glyph->advance);
+    }
+
     auCharacter chara = auCharacter(face, 20);
     chara.setResolution();
 
@@ -120,18 +127,31 @@ void auFontRendering::loadFont() {
 int auFontRendering::auDraw(std::string letter) {
   shaders.Activate();
 
-  shaders.SetFloat("uPtSize", float(size));
+  shaders.SetVec2("position", position.x, position.y);
+  shaders.SetFloat("uPtSize", static_cast<float>(size));
   shaders.SetInt("uEM_size", face->units_per_EM);
-  shaders.SetVec2("uScreenSize", screenWidth, screenHeight);
+  shaders.SetVec2("uScreenSize", static_cast<float>(screenWidth),
+                  static_cast<float>(screenHeight));
+
+  offsetBuffer = {0, 0};
 
   vao->Bind();
   dib->Bind();
-  for (char c : letter) {
+
+  for (unsigned char c : letter) {
+    shaders.SetVec2("offset", static_cast<float>(offsetBuffer.x),
+                    static_cast<float>(offsetBuffer.y));
+
     glMultiDrawElementsIndirect(
         GL_TRIANGLES, GL_UNSIGNED_INT,
-        (void *)(static_cast<int>(c) * sizeof(DrawElementsIndirectCommand)), 1,
-        sizeof(DrawElementsIndirectCommand));
+        reinterpret_cast<void *>(static_cast<size_t>(c) *
+                                 sizeof(DrawElementsIndirectCommand)),
+        1, sizeof(DrawElementsIndirectCommand));
+
+    offsetBuffer.x += listOffset[c].x;
+    offsetBuffer.y += listOffset[c].y;
   }
+
   return 0;
 }
 

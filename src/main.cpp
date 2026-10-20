@@ -1,9 +1,11 @@
 #include <string>
+#include <sys/types.h>
 #define GLFW_INCLUDE_NONE
 #include "../lib/GLFW/glfw3.h"
 #include "../lib/glad.h"
 #include "Shader.h"
 #include "auFontRendering.h"
+#include <cmath>
 #include <cstdio>
 #include <iostream>
 
@@ -36,11 +38,11 @@ int main() {
 
   glViewport(0, 0, 800, 600);
 
-  // double elapseTime = 1;
-  // std::optional<double> currentTimeStamp;
-  // float fps = 0;
+  double elapseTime = 1;
+  double currentTimeStamp;
+  float fps = 0;
 
-  auFontRendering font = auFontRendering(window, {0, 0}, 198, {1, 1, 1});
+  auFontRendering font = auFontRendering(window, {100, 300}, 64, {1, 1, 1});
   font.loadFont();
 
   // while (!glfwWindowShouldClose(window)) {
@@ -73,7 +75,20 @@ int main() {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     // 2. then draw
-    font.auDraw("");
+    double currentTime = glfwGetTime();
+    double seconds = currentTime - currentTimeStamp;
+    fps = 1 / seconds;
+    currentTimeStamp = currentTime;
+
+    static int lastSecond = -1;
+    static std::string fpsText;
+
+    if (static_cast<int>(currentTime) != lastSecond) {
+      lastSecond = static_cast<int>(currentTime);
+      fpsText = std::to_string(static_cast<int>(std::lround(fps)));
+    }
+
+    font.auDraw("A");
 
     glfwSwapBuffers(window);
     glfwPollEvents();

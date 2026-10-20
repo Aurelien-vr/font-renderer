@@ -1,6 +1,7 @@
 #include "auCharacter.h"
-// #include "auFontRendering.h"
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <freetype/ftimage.h>
 #include <iostream>
 #include <sys/types.h>
@@ -26,130 +27,89 @@ void auCharacter::setResolution() {
   short contourStart = 0;
   uint coutourStartExtended = 0;
 
+  bool hadInnerContour = false;
+
   for (short i_point = 0; i_point < outline.n_points; i_point++) {
 
-    // Track whether this iteration consumed an extra point index (double
-    // conic case below) so the contour-boundary check can test both indices.
-    short firstPointIndex = i_point;
-    bool consumedExtraPoint = false;
+    short contourEnd = outline.contours[indexOfContour];
+    char tag = FT_CURVE_TAG(outline.tags[i_point]);
 
-    if (outline.tags[i_point] == FT_CURVE_TAG_ON) {
+    if (tag == FT_CURVE_TAG_ON) {
       vertices.push_back(outline.points[i_point]);
 
-    } else if (outline.tags[i_point] == FT_CURVE_TAG_CONIC) {
+    } else if (tag == FT_CURVE_TAG_CONIC) {
 
-      // TODO:Two successive conic ‘off’ points force the rasterizer to create
-      // (during the scan-line conversion process exclusively) a virtual ‘on’
-      // point inbetween, at their exact middle. This greatly facilitates the
-      // definition of successive conic Bézier arcs. Moreover, it is the way
-      // outlines are described in the TrueType specification.
+      // Neighbours wrapped inside the CURRENT contour
+      short prevIdx = (i_point == contourStart) ? contourEnd : i_point - 1;
+      short nextIdx = (i_point == contourEnd) ? contourStart : i_point + 1;
 
-      std::vector<FT_Vector_> bezierCurvePoints;
-      // TODO:
-      // If 2 FT_CURVE_TAG_CONIC folowed each other (FreeType doc)
-      // Maybe wrap this in a function backToBackCubic to simplify the set
-      // resolution.
-      // Only pair with the next point if it's still part of the SAME contour,
-      // otherwise we'd wrongly merge the last point of this contour with the
-      // first point of the next one.
-      if (i_point != outline.contours[indexOfContour] &&
-          outline.tags[i_point + 1] == FT_CURVE_TAG_CONIC) {
-        FT_Vector_ virtualPoint = {
-            lerp(outline.points[i_point].x, outline.points[i_point + 1].x, 0.5),
-            lerp(outline.points[i_point].y, outline.points[i_point + 1].y,
-                 0.5)};
+      FT_Vector_ control = outline.points[i_point];
+      FT_Vector_ start = outline.points[prevIdx];
+      FT_Vector_ end = outline.points[nextIdx];
 
-        bezierCurvePoints = bezierPoints(interval, outline.points[i_point - 1],
-                                         virtualPoint, outline.points[i_point]);
+      bool prevIsOn = FT_CURVE_TAG(outline.tags[prevIdx]) == FT_CURVE_TAG_ON;
+      bool nextIsOn = FT_CURVE_TAG(outline.tags[nextIdx]) == FT_CURVE_TAG_ON;
 
-        // NOTE: need to pass by intermediate vector to add the seconde conic
-        // curve points to the original one very wanky
-        std::vector<FT_Vector_> scdBezierCurvePoints =
-            bezierPoints(interval, virtualPoint, outline.points[i_point + 2],
-                         outline.points[i_point + 1]);
+      // Previous point is also off-curve: the curve starts at the implied
+      // on-curve point between them (their midpoint)
+      if (!prevIsOn) {
+        start = {lerp(start.x, control.x, 0.5), lerp(start.y, control.y, 0.5)};
+      }
 
-        bezierCurvePoints.insert(bezierCurvePoints.end(),
-                                 scdBezierCurvePoints.begin(),
-                                 scdBezierCurvePoints.end());
+      // Next point is also off-curve: the curve ends at the implied
+      // on-curve point between them (their midpoint)
+      if (!nextIsOn) {
+        end = {lerp(control.x, end.x, 0.5), lerp(control.y, end.y, 0.5)};
+      }
 
-        i_point++;
-        consumedExtraPoint = true;
-      } else {
-        bezierCurvePoints =
-            bezierPoints(interval, outline.points[i_point - 1],
-                         outline.points[i_point + 1], outline.points[i_point]);
+      std::vector<FT_Vector_> bezierCurvePoints =
+          bezierPoints(interval, start, end, control);
+
+      // The implied on-curve point is never visited as an ON point,
+      // so it must be added here
+      if (!nextIsOn) {
+        bezierCurvePoints.push_back(end);
       }
 
       vertices.insert(vertices.end(), bezierCurvePoints.begin(),
                       bezierCurvePoints.end());
 
-    } else if (outline.tags[i_point] == FT_CURVE_TAG_CUBIC) {
-      // There is no cubic tag on the default font for the first 126 ascii
-      // character
+    } else if (tag == FT_CURVE_TAG_CUBIC) {
       std::cout << "CUBIC" << std::endl;
     }
 
-    // Contour boundary may fall on the first index we consumed this
-    // iteration (firstPointIndex) even if we then advanced i_point past it,
-    // so both indices must be checked or the boundary can be missed.
-    bool hitContourEnd = (i_point == outline.contours[indexOfContour]) ||
-                         (consumedExtraPoint &&
-                          firstPointIndex == outline.contours[indexOfContour]);
-
-    if (hitContourEnd) {
-
-      // contourStart -> index of the start of the countour
-      // outline.contours[indexOfContour] -> index of the end of the contour
-
-      FT_Vector_ *start = outline.points + contourStart;
-      int count = outline.contours[indexOfContour] - contourStart + 1;
+    if (i_point == contourEnd) {
+      FT_Vector *start = outline.points + contourStart;
+      int count = contourEnd - contourStart + 1;
       float sign = shoelace(start, count);
 
+      std::vector<FT_Vector_> currentContour(
+          vertices.begin() + coutourStartExtended, vertices.end());
+
       if (sign < 0) {
-        if (outerContour.empty()) {
-          // add the points from index contourStart to index
-          // outline.contours[indexOfContour] to outerPolygone
-          //
-          // If the inner polygone was not emplty it means there is multiple
-          // outerPolygone and i don't know how to handle that
-          // Insert in outer contour the vertices of the outer contour.
-          outerContour.insert(outerContour.end(),
-                              vertices.begin() + coutourStartExtended,
-                              vertices.end());
+        if (!outerContour.empty()) {
+          triangulation(outerContour, innerContours);
+          outerContour.clear();
+          innerContours.clear();
         }
 
+        outerContour = std::move(currentContour);
       } else if (sign > 0) {
-        // add the points from index contourStart to index
-        // outline.contours[indexOfContour] to the list of innerPolygon
-
-        std::vector<FT_Vector_> innerContour;
-        innerContour.insert(innerContour.end(),
-                            vertices.begin() + coutourStartExtended,
-                            vertices.end());
-
-        innerContours.push_back(innerContour);
-
-      } else if (sign == 0) {
-        std::cout << "Not inner or outer polygone: DO NOTHING" << std::endl;
+        // Hole belonging to the current outer contour.
+        if (!outerContour.empty()) {
+          innerContours.push_back(std::move(currentContour));
+        }
       }
 
-      contourStart = outline.contours[indexOfContour] + 1;
-      // The start of the next coutour is the actual index +1 = the size at that
-      // moment.
+      contourStart = contourEnd + 1;
       coutourStartExtended = vertices.size();
       indexOfContour++;
     }
   }
 
-  // std::cout << "DEBUG setResolution: outerContour.size() = "
-  //           << outerContour.size() << std::endl;
-  // std::cout << "DEBUG setResolution: innerContours.size() = "
-  //           << innerContours.size() << std::endl;
-  // std::cout << "DEBUG setResolution: vertices.size() = " << vertices.size()
-  //           << std::endl;
-
   triangulation(outerContour, innerContours);
 }
+
 long auCharacter::lerp(float a, float b, float f) {
   return a * (1.f - f) + (b * f);
 }
@@ -186,9 +146,19 @@ void auCharacter::triangulation(
     std::vector<FT_Vector_> outerVertices,
     std::vector<std::vector<FT_Vector_>> listInerPolygon) {
 
+  // Outer contour must be CCW (shoelace > 0) : Verification
+  if (shoelace(outerVertices.data(), (int)outerVertices.size()) < 0) {
+    std::reverse(outerVertices.begin(), outerVertices.end());
+  }
+
+  // Holes must be CW (shoelace < 0) : Verification
+  for (std::vector<FT_Vector_> &hole : listInerPolygon) {
+    if (shoelace(hole.data(), (int)hole.size()) > 0) {
+      std::reverse(hole.begin(), hole.end());
+    }
+  }
+
   if (listInerPolygon.size() != 0) {
-    // The goal i to transform the polygone with hole in a pseudo simple
-    // polygone on witch earClipping can be used
     outerVertices = bridge(outerVertices, listInerPolygon);
   }
 
@@ -196,7 +166,9 @@ void auCharacter::triangulation(
 
   earClipping(outerVertices, triangleOutput);
 
-  verticesTriangles = triangleOutput;
+  // append at the end
+  verticesTriangles.insert(verticesTriangles.end(), triangleOutput.begin(),
+                           triangleOutput.end());
 }
 
 // Return pseudo simple polygon
@@ -332,27 +304,16 @@ auCharacter::bridge(std::vector<FT_Vector_> outerVertices,
     std::vector<FT_Vector_> merged;
     merged.reserve(outerVertices.size() + innerPolygon.size() + 2);
 
-    // 1) copy outer up to indexR
     merged.insert(merged.end(), outerVertices.begin(),
                   outerVertices.begin() + indexR + 1);
 
-    // 2) insert inner starting "after M" wrapping around, and ending at M
     int n = (int)innerPolygon.size();
-    int start = (indexMax + 1) % n;
+    for (int k = 0; k < n; ++k)
+      merged.push_back(innerPolygon[(indexMax + k) % n]);
 
-    for (int i = start; i < n; ++i)
-      merged.push_back(innerPolygon[i]);
-
-    for (int i = 0; i <= indexMax; ++i)
-      merged.push_back(innerPolygon[i]);
-
-    // 3) repeat the first inserted inner vertex to close the hole walk
-    merged.push_back(innerPolygon[start]);
-
-    // 4) repeat outer[indexR] to create the second bridge edge back
+    merged.push_back(innerPolygon[indexMax]);
     merged.push_back(outerVertices[indexR]);
 
-    // 5) copy the rest of outer (after indexR)
     merged.insert(merged.end(), outerVertices.begin() + indexR + 1,
                   outerVertices.end());
 
@@ -379,8 +340,8 @@ float auCharacter::shoelace(FT_Vector *points, int count) {
   return area * 0.5f;
 }
 
-float auCharacter::area(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c) {
-  return abs((a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)) / 2.0);
+long auCharacter::area(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c) {
+  return (long)(b.y - a.y) * (c.x - b.x) - (long)(b.x - a.x) * (c.y - b.y);
 }
 
 bool auCharacter::isInsideTriangle(FT_Vector_ A, FT_Vector_ B, FT_Vector_ C,
@@ -447,10 +408,10 @@ bool auCharacter::isPointsInsideTriangle(const std::vector<FT_Vector_> &polygon,
   FT_Vector_ mid = polygon[i];
   FT_Vector_ next = polygon[(i + 1) % polygon.size()];
 
-  for (int indexVert = 0; indexVert < (int)polygon.size(); indexVert++) {
+  for (size_t indexVert = 0; indexVert < (size_t)polygon.size(); indexVert++) {
 
     if (indexVert == (i - 1 + polygon.size()) % polygon.size() ||
-        indexVert == i || indexVert == (i + 1) % polygon.size()) {
+        indexVert == (size_t)i || indexVert == (i + 1) % polygon.size()) {
       continue;
     }
 
@@ -478,44 +439,86 @@ bool auCharacter::isPointsInsideTriangle(const std::vector<FT_Vector_> &polygon,
 
 bool auCharacter::isFullyInsidePolygone(const std::vector<FT_Vector_> &polygone,
                                         int i) {
+  const int n = polygone.size();
 
-  FT_Vector_ a = polygone[(i - 1 + polygone.size()) % polygone.size()];
-  FT_Vector_ b = polygone[i];
-  FT_Vector_ c = polygone[i + 1 % polygone.size()];
+  const int ia = (i + n - 1) % n; // a = i-1
+  const int ib = (i + 1) % n;     // b = i+1
 
-  /*
-   The diagonal must lie inside the polygon
+  FT_Vector_ a = polygone[ia];
+  FT_Vector_ b = polygone[ib];
+  FT_Vector_ prevA = polygone[(i + n - 2) % n]; // a.prev
+  FT_Vector_ tip = polygone[i];                 // a.next and b.prev
+  FT_Vector_ nextB = polygone[(i + 2) % n];     // b.next
 
-   The robust method is:
+  // Degenerate case: a and b coincide (duplicated bridge vertex)
+  bool zeroLength = a.x == b.x && a.y == b.y && area(prevA, a, tip) > 0 &&
+                    area(tip, b, nextB) > 0;
 
-   Check that the diagonal (P[i-1], P[i+1]) does not intersect any polygon
-   edge Ignore the two adjacent edges (P[i-1], P[i]) (P[i], P[i+1]) Also
-   ignore the edge sharing the endpoint (P[i+1], P[i+2]) and (P[i-2], P[i-1])
-   when testing endpoint-only contacts, depending on your segment intersection
-   implementation.
+  // The diagonal does not cross any other edge
+  if (intersectWithPolygone(polygone, i)) {
+    return false;
+  }
 
-    This is the standard visibility test.
-   */
+  // Degenerate case: only the crossing test applies
+  if (zeroLength) {
+    return true;
+  }
+
+  // The diagonal leaves a and b toward the interior of the polygone
+  bool locallyVisible =
+      locallyInside(polygone, ia, b) && locallyInside(polygone, ib, a);
+
+  if (!locallyVisible) {
+    return false;
+  }
+
+  // No opposite-facing sectors (neighbours collinear with the diagonal)
+  bool noOppositeSectors = area(prevA, a, tip) != 0 || area(a, tip, b) != 0;
+
+  if (!noOppositeSectors) {
+    return false;
+  }
+
+  // The diagonal runs through the interior, not through a hole or exterior
+  return middleInside(polygone, a, b);
+}
+
+bool auCharacter::locallyInside(const std::vector<FT_Vector_> &p, int idx,
+                                FT_Vector_ target) {
+  const int n = p.size();
+  FT_Vector_ a = p[idx];
+  FT_Vector_ prev = p[(idx + n - 1) % n];
+  FT_Vector_ next = p[(idx + 1) % n];
+
+  return area(prev, a, next) < 0
+             ? area(a, target, next) >= 0 && area(a, prev, target) >= 0
+             : area(a, target, prev) < 0 || area(a, next, target) < 0;
+}
+
+bool auCharacter::middleInside(const std::vector<FT_Vector_> &poly,
+                               FT_Vector_ a, FT_Vector_ b) {
+  double px = (a.x + b.x) / 2.0;
+  double py = (a.y + b.y) / 2.0;
+  bool inside = false;
+  const int n = poly.size();
+
+  for (int j = 0; j < n; j++) {
+    FT_Vector_ p = poly[j];
+    FT_Vector_ q = poly[(j + 1) % n];
+    if (((p.y > py) != (q.y > py)) && q.y != p.y &&
+        px < (double)(q.x - p.x) * (py - p.y) / (double)(q.y - p.y) + p.x)
+      inside = !inside;
+  }
+  return inside;
 }
 
 void auCharacter::earClipping(std::vector<FT_Vector_> vertices,
                               std::vector<FT_Vector_> &triangleOutput) {
 
-  // std::cout << "DEBUG: earClipping started with " << vertices.size()
-  //           << " vertices" << std::endl;
-
   while (vertices.size() > 3) {
-    // std::cout << "DEBUG: Loop iteration, vertices.size() = " <<
-    // vertices.size()
-    //           << std::endl;
-
     ulong earIndex = findEar(vertices);
 
-    // std::cout << "DEBUG: findEar returned " << earIndex << std::endl;
-
     if (earIndex >= vertices.size()) {
-      // std::cout << "ERROR: earIndex " << earIndex << " >= vertices.size() "
-      //           << vertices.size() << std::endl;
       break;
     }
 
@@ -526,42 +529,36 @@ void auCharacter::earClipping(std::vector<FT_Vector_> vertices,
 
     // std::cout << "DEBUG: About to erase index " << earIndex << std::endl;
     vertices.erase(vertices.begin() + earIndex);
-    // std::cout << "DEBUG: Erased, new size = " << vertices.size() <<
-    // std::endl;
   }
 
   // Add the last triangle to the return output
-  for (FT_Vector_ vertex : vertices)
-    triangleOutput.push_back(vertex);
+  if (vertices.size() == 3) {
+    for (FT_Vector_ v : vertices)
+      triangleOutput.push_back(v);
+  } else {
+    std::cerr << "earClipping failed, " << vertices.size()
+              << " vertices left\n";
+  }
 }
 
 ulong auCharacter::findEar(std::vector<FT_Vector_> vertices) {
-  // std::cout << "DEBUG findEar: Input vertices.size() = " << vertices.size()
-  // << std::endl;
-
   for (ulong i = 0; i < vertices.size(); i++) {
-    // std::cout << "DEBUG findEar: Checking i=" << i << std::endl;
 
     if (isReflexOuterVertex(vertices, i)) {
-      //   std::cout << "DEBUG findEar: i=" << i << " is reflex, skipping"
-      //             << std::endl;
       continue;
     }
 
     if (isPointsInsideTriangle(vertices, i)) {
-      // std::cout << "DEBUG findEar: i=" << i << " has point inside" <<
-      // std::endl;
       continue;
     }
 
-    // std::cout << "DEBUG findEar: Found ear at i=" << i << std::endl;
+    if (!isFullyInsidePolygone(vertices, i)) {
+      continue;
+    }
+
     return i;
   }
 
-  // TODO:
-  // NEED TO CHECK INTERSECTION AFTER I FINISH DEBUG
-
-  // std::cout << "DEBUG findEar: NO EAR FOUND!" << std::endl;
   return ULONG_MAX;
 }
 
@@ -606,4 +603,40 @@ bool auCharacter::between(FT_Vector_ *a, FT_Vector_ *b, FT_Vector_ *c) {
   } else {
     return ((a->y <= c->y && c->y <= b->y) || (a->y >= c->y && c->y >= b->y));
   }
+}
+
+bool auCharacter::intersectWithPolygone(const std::vector<FT_Vector_> &polygone,
+                                        int i) {
+  const int n = polygone.size();
+
+  FT_Vector_ a = polygone[(i + n - 1) % n]; // i-1
+  FT_Vector_ b = polygone[(i + 1) % n];     // i+1
+
+  for (int j = 0; j < n; j++) {
+    FT_Vector_ c = polygone[j];
+    FT_Vector_ d = polygone[(j + 1) % n];
+
+    // Skip edges sharing an endpoint with the diagonal (by coordinates,
+    // so duplicated bridge vertices are also skipped)
+    if ((c.x == a.x && c.y == a.y) || (d.x == a.x && d.y == a.y) ||
+        (c.x == b.x && c.y == b.y) || (d.x == b.x && d.y == b.y)) {
+      continue;
+    }
+
+    if (intersect(a, b, c, d)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool auCharacter::intersect(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c,
+                            FT_Vector_ d) {
+  if (intersectProp(a, b, c, d)) {
+    return true;
+  }
+
+  return between(&a, &b, &c) || between(&a, &b, &d) || between(&c, &d, &a) ||
+         between(&c, &d, &b);
 }

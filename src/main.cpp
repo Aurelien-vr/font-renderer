@@ -1,4 +1,3 @@
-#include <optional>
 #include <string>
 #define GLFW_INCLUDE_NONE
 #include "../lib/GLFW/glfw3.h"
@@ -27,7 +26,7 @@ int main() {
   }
 
   glfwMakeContextCurrent(window);
-  // NOTE: Remove VSync that cap fps to the max monitor refresh rate
+  // Remove VSync that cap fps to the max monitor refresh rate
   glfwSwapInterval(0);
 
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -37,9 +36,9 @@ int main() {
 
   glViewport(0, 0, 800, 600);
 
-  double elapseTime = 1;
-  std::optional<double> currentTimeStamp;
-  float fps = 0;
+  // double elapseTime = 1;
+  // std::optional<double> currentTimeStamp;
+  // float fps = 0;
 
   auFontRendering font = auFontRendering(window, {0, 0}, 198, {1, 1, 1});
   font.loadFont();
@@ -74,7 +73,7 @@ int main() {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     // 2. then draw
-    font.auDraw("B");
+    font.auDraw("");
 
     glfwSwapBuffers(window);
     glfwPollEvents();

@@ -13,11 +13,16 @@ public:
    * VARIABLE
    */
 
+  // List of the verticies from freeType
   std::vector<FT_Vector_> vertices;
+  // List of the vertices that form triangle after bezier and earCLipping
   std::vector<FT_Vector_> verticesTriangles;
+  // List of outer contour after bezier
   std::vector<FT_Vector_> outerContour;
-  std::vector<short> outlineEnd;
+  // List of inner contour after bezier
   std::vector<std::vector<FT_Vector_>> innerContours;
+  // List of ouline end index after bezier
+  std::vector<short> outlineEnd;
 
   float offset_letter;
   bool compound;
@@ -66,6 +71,14 @@ r a valid ear, you typically need points to NOT be inside the triangle
    * HELPER FUNCTION
    */
 
+  // segment polygone[idx] -> target leaves idx inside the interior angle
+  bool locallyInside(const std::vector<FT_Vector_> &polygone, int idx,
+                     FT_Vector_ target);
+
+  // midpoint of a-b is inside the polygone
+  bool middleInside(const std::vector<FT_Vector_> &polygone, FT_Vector_ a,
+                    FT_Vector_ b);
+
   float distance(FT_Vector_ a, FT_Vector_ b);
 
   // This function return a negative value if the vertices of the subOutline is
@@ -73,7 +86,7 @@ r a valid ear, you typically need points to NOT be inside the triangle
   float shoelace(FT_Vector *points, int count);
 
   // Compute the area of a triangle
-  float area(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c);
+  long area(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c);
 
   // Return True if P is inside the triangle ABC (ABC and P are points not
   // index)
@@ -101,6 +114,7 @@ r a valid ear, you typically need points to NOT be inside the triangle
   // return if there is a proper intersection and does not account for
   // degenernecy (used in intersect)
   bool intersectProp(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c, FT_Vector_ d);
+
   // Return true if AB and CD intersect
   bool intersect(FT_Vector_ a, FT_Vector_ b, FT_Vector_ c, FT_Vector_ d);
 

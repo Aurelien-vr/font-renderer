@@ -11,7 +11,6 @@
 
 #include <GLFW/glfw3.h>
 #include <freetype/ftimage.h>
-#include <iostream>
 #include <numeric>
 #include <vector>
 
@@ -116,12 +115,6 @@ void auFontRendering::loadFont() {
   vbo->Unbind();
   ebo->Unbind();
   dib->Unbind();
-
-  // for (FT_Vector_ point : listCharacters[66].verticies) {aufont
-  //   std::cout << "List Chara: " << point.x << " | " << point.y << std::endl;
-  // }
-  //
-  // std::cout << "Data: " << cmdBuffer[66].count << std::endl;
 }
 
 int auFontRendering::auDraw(std::string letter) {

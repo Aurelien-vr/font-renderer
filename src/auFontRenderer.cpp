@@ -1,4 +1,4 @@
-#include "auFontRendering.h"
+#include "auFontRenderer.h"
 #include "../lib/freetype2/freetype/freetype.h"
 #include "../lib/freetype2/freetype/fttypes.h"
 #include "DIB.h"
@@ -6,7 +6,7 @@
 #include "Shader.h"
 #include "VAO.h"
 #include "VBO.h"
-#include "auCharacter.h"
+#include "auGlyph.h"
 #include "liberation_sans.h"
 
 #include <GLFW/glfw3.h>
@@ -17,9 +17,9 @@
 
 auFontRendering::auFontRendering(GLFWwindow *window, auVector2 position,
                                  int size, auColor color)
-    : window(window), position(position), size(size), color(color),
-      shaders("../src/ressources/default.vert",
-              "../src/ressources/default.frag") {
+    : window(window),
+      shaders("ressources/default.vert", "ressources/default.frag"), size(size),
+      position(position), color(color) {
 
   glfwSetWindowUserPointer(window, this);
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);

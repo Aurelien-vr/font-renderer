@@ -4,7 +4,7 @@
 #include "../lib/GLFW/glfw3.h"
 #include "../lib/glad.h"
 #include "Shader.h"
-#include "auFontRendering.h"
+#include "auFontRenderer.h"
 #include <cmath>
 #include <cstdio>
 #include <iostream>
@@ -38,34 +38,11 @@ int main() {
 
   glViewport(0, 0, 800, 600);
 
-  double elapseTime = 1;
   double currentTimeStamp;
   float fps = 0;
 
   auFontRendering font = auFontRendering(window, {100, 300}, 64, {1, 1, 1});
   font.loadFont();
-
-  // while (!glfwWindowShouldClose(window)) {
-  //
-  //   // fps conter
-  //   double currentTime = glfwGetTime();
-  //   if (currentTimeStamp.has_value()) {
-  //     double seconds = currentTime - currentTimeStamp.value();
-  //     fps = 1 / seconds;
-  //   }
-  //   currentTimeStamp = currentTime;
-  //
-  //   font.auDraw();
-  //
-  //   glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-  //   glClear(GL_COLOR_BUFFER_BIT);
-  //
-  //   font.shaders.Activate();
-  //
-  //   glfwSwapBuffers(window);
-  //   glfwPollEvents();
-  // }
-  //
 
   while (!glfwWindowShouldClose(window)) {
     // 1. clear first
@@ -93,7 +70,8 @@ int main() {
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
-  glfwTerminate();
+
   font.shaders.Delete();
+  glfwTerminate();
   return 0;
 }

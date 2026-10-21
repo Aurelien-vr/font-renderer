@@ -2,7 +2,7 @@
 #include "../lib/freetype2/freetype/fttypes.h"
 #include "DrawElementsIndirectCommand.h"
 #include "Shader.h"
-#include "auCharacter.h"
+#include "auGlyph.h"
 #include <freetype/ftimage.h>
 #include <ft2build.h>
 #include <string>

@@ -26,14 +26,18 @@ set(PROJECT_SOURCES
 
     src/glad.c
 
-    src/Shader.cpp
-    src/VAO.cpp
-    src/VBO.cpp
-    src/EBO.cpp
-    src/DIB.cpp
+    src/graphics/Shader.cpp
+    src/graphics/VAO.cpp
+    src/graphics/VBO.cpp
+    src/graphics/EBO.cpp
+    src/graphics/DIB.cpp
 
-    src/auFontRenderer.cpp
-    src/auGlyph.cpp
+    src/font/auColor.cpp
+    src/font/auFontRenderer.cpp
+    src/font/auGlyph.cpp
+
+    src/geometry/bezier.cpp
+    src/geometry/earClipping.cpp
 )
 
 set_source_files_properties(
@@ -50,6 +54,9 @@ target_include_directories(font_renderer
     PRIVATE
         ${PROJECT_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/src/font
+        ${PROJECT_SOURCE_DIR}/src/graphics
+        ${PROJECT_SOURCE_DIR}/src/geometry
         ${PROJECT_SOURCE_DIR}/lib
 )
 

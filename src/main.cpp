@@ -41,7 +41,7 @@ int main() {
   double currentTimeStamp;
   float fps = 0;
 
-  auFontRendering font = auFontRendering(window, {100, 300}, 64, {1, 1, 1});
+  auFontRenderer font = auFontRenderer(window, {100, 300}, 64, {1, 1, 1});
   font.loadFont();
 
   while (!glfwWindowShouldClose(window)) {

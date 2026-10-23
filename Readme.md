@@ -38,6 +38,45 @@ The static library is generated in the `build` directory as
 `libfont_renderer.a`. The `src/main.cpp` file is kept as a reference/demo
 entry point but is not built by the project.
 
+## Use from another CMake project
+
+The simplest development setup is to fetch this repository with CMake
+`FetchContent`:
+
+```cmake
+include(FetchContent)
+
+FetchContent_Declare(
+    font_renderer
+    GIT_REPOSITORY https://github.com/Aurelien-vr/font-renderer.git
+    GIT_TAG 269de06011e8cfceeffe9acce2dd7b739ecda277
+)
+
+FetchContent_MakeAvailable(font_renderer)
+
+target_link_libraries(my_app PRIVATE font_renderer)
+```
+
+Use a release tag or commit instead of `main` when possible, so builds remain
+reproducible. The selected commit must already be pushed to GitHub.
+
+The consuming project must also provide GLFW 3.4 or newer, OpenGL, and
+FreeType. Before constructing the renderer, create an OpenGL context and load
+OpenGL functions:
+
+```cpp
+#include <GLFW/glfw3.h>
+#include "auFontRenderer.h"
+
+// After glfwInit(), creating a window, making its context current,
+// and loading OpenGL functions:
+auFontRenderer font(window, {100, 300}, 64, {1, 1, 1});
+font.loadFont();
+font.auDraw("Hello");
+```
+
+The renderer must be used while the window's OpenGL context is current.
+
 ## Project status
 
 This project is still under development. The current implementation uses FreeType for TrueType parsing. A custom parser, `auTTFparser`, may replace it in the future.

@@ -75,7 +75,6 @@ int main() {
     glfwPollEvents();
   }
 
-  font.shaders.Delete();
   glfwTerminate();
   return 0;
 }

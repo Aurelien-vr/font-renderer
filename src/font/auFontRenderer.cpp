@@ -1,13 +1,15 @@
 #include "auFontRenderer.h"
-#include <freetype/freetype.h>
-#include <freetype/fttypes.h>
 #include "DIB.h"
 #include "DrawElementsIndirectCommand.h"
+#include "EBO.h"
 #include "Shader.h"
 #include "VAO.h"
 #include "VBO.h"
 #include "auGlyph.h"
+#include "auColor.h"
 #include "liberation_sans.h"
+#include <freetype/freetype.h>
+#include <freetype/fttypes.h>
 
 #include <GLFW/glfw3.h>
 #include <cstddef>
@@ -15,20 +17,66 @@
 #include <numeric>
 #include <vector>
 
+class auFontRenderer::Impl {
+public:
+  Impl(GLFWwindow *window, auVector2 position, int size, auColor color)
+      : window(window),
+        shaders("ressources/default.vert", "ressources/default.frag"),
+        size(size), position(position), color(color) {}
+
+  GLFWwindow *window;
+  Shader shaders;
+  int size;
+  auVector2 position;
+  auColor color;
+
+  int screenHeight, screenWidth;
+
+  FT_Vector_ offsetBuffer{0, 0};
+
+  VAO *vao = nullptr;
+  VBO *vbo = nullptr;
+  EBO *ebo = nullptr;
+  DIB *dib = nullptr;
+
+  // All the verticies of all the glyph to draw
+  // Needed to send all the data at once to the VBO
+  std::vector<float> sentence;
+
+  // Liste of the characters containing the data for the drawing as a list of
+  // object auCharacters
+  std::vector<auCharacter> listCharacters;
+  std::vector<FT_Vector_> listOffset;
+  std::vector<DrawElementsIndirectCommand> cmdBuffer;
+
+  FT_Library library = nullptr;
+  FT_Face face = nullptr;
+
+  int auInitFreeType();
+  int auLoadFace();
+  int auLoadFace(std::string path);
+  int getGlyph(FT_ULong charcode);
+  void clearBuffer();
+  void onResize();
+  static void framebuffer_size_callback(GLFWwindow *window, int width,
+                                        int height);
+  ~Impl();
+};
+
 auFontRenderer::auFontRenderer(GLFWwindow *window, auVector2 position, int size,
                                auColor color)
-    : window(window),
-      shaders("ressources/default.vert", "ressources/default.frag"), size(size),
-      position(position), color(color) {
+    : _impl(std::make_unique<Impl>(window, position, size, color)) {
 
-  glfwSetWindowUserPointer(window, this);
-  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+  glfwSetWindowUserPointer(window, _impl.get());
+  glfwSetFramebufferSizeCallback(window, Impl::framebuffer_size_callback);
 
-  auInitFreeType();
-  auLoadFace();
+  _impl->auInitFreeType();
+  _impl->auLoadFace();
 }
 
-auFontRenderer::~auFontRenderer() {
+auFontRenderer::~auFontRenderer() = default;
+
+auFontRenderer::Impl::~Impl() {
   shaders.Delete();
   if (face)
     FT_Done_Face(face);
@@ -45,9 +93,11 @@ auFontRenderer::~auFontRenderer() {
   dib = nullptr;
 }
 
-int auFontRenderer::auInitFreeType() { return !FT_Init_FreeType(&library); }
+int auFontRenderer::Impl::auInitFreeType() {
+  return !FT_Init_FreeType(&library);
+}
 
-int auFontRenderer::auLoadFace() {
+int auFontRenderer::Impl::auLoadFace() {
   if (face) {
     FT_Done_Face(face);
     face = nullptr;
@@ -56,7 +106,7 @@ int auFontRenderer::auLoadFace() {
                             LiberationMono_Regular_ttf_len, 0, &face);
 }
 
-int auFontRenderer::auLoadFace(std::string path) {
+int auFontRenderer::Impl::auLoadFace(std::string path) {
   if (face) {
     FT_Done_Face(face);
     face = nullptr;
@@ -64,7 +114,7 @@ int auFontRenderer::auLoadFace(std::string path) {
   return FT_New_Face(library, path.c_str(), 0, &face);
 }
 
-int auFontRenderer::getGlyph(FT_ULong charcode) {
+int auFontRenderer::Impl::getGlyph(FT_ULong charcode) {
   FT_UInt index = FT_Get_Char_Index(face, charcode);
   return FT_Load_Glyph(
       face, index, FT_LOAD_NO_BITMAP | FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING);
@@ -72,86 +122,89 @@ int auFontRenderer::getGlyph(FT_ULong charcode) {
 
 void auFontRenderer::loadFont() {
 
-  clearBuffer();
+  _impl->clearBuffer();
   int offset = 0;
-  sentence.clear();
-  listCharacters.clear();
-  listOffset.clear();
-  cmdBuffer.clear();
+  _impl->sentence.clear();
+  _impl->listCharacters.clear();
+  _impl->listOffset.clear();
+  _impl->cmdBuffer.clear();
 
-  glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
+  glfwGetFramebufferSize(_impl->window, &_impl->screenWidth,
+                         &_impl->screenHeight);
 
   for (FT_ULong c = 0; c < 127; c++) {
     // Set the face in the variable face
     // It is then pass to the character to retrive the outline points
-    getGlyph(c);
+    _impl->getGlyph(c);
 
-    if (face != NULL) {
-      listOffset.push_back(face->glyph->advance);
+    if (_impl->face != NULL) {
+      _impl->listOffset.push_back(_impl->face->glyph->advance);
     }
 
-    auCharacter chara = auCharacter(face, 20);
+    auCharacter chara = auCharacter(_impl->face, 20);
     chara.setResolution();
 
     // Use to keep the characters if needed later (Not used for now)
-    listCharacters.push_back(chara);
+    _impl->listCharacters.push_back(chara);
 
     // Put the verticies of the character inside a large list for the VBO
     for (FT_Vector_ point : chara.verticesTriangles) {
-      sentence.push_back(point.x);
-      sentence.push_back(point.y);
+      _impl->sentence.push_back(point.x);
+      _impl->sentence.push_back(point.y);
     }
 
-    cmdBuffer.push_back(
+    _impl->cmdBuffer.push_back(
         {uint32_t(chara.verticesTriangles.size()), 1, uint32_t(offset), 0, 0});
 
     offset += chara.verticesTriangles.size();
   }
 
-  vao = new VAO();
-  vao->Bind();
+  _impl->vao = new VAO();
+  _impl->vao->Bind();
 
   // Create a VBO and bind it
-  vbo = new VBO(sentence.data(), sentence.size() * sizeof(float));
+  _impl->vbo = new VBO(_impl->sentence.data(),
+                       _impl->sentence.size() * sizeof(float));
 
-  vao->LinkVBO(*vbo, 0);
+  _impl->vao->LinkVBO(*_impl->vbo, 0);
 
   // Create a EBO with increasing value (0,1,2,3,...)
   // The EBO is useless but needed in the setup
   // it is a dummy EBO
   // In the meantime of a efficent EBO
-  int total_vertices = sentence.size() / 2;
+  int total_vertices = _impl->sentence.size() / 2;
   std::vector<GLuint> indices(total_vertices);
   std::iota(indices.begin(), indices.end(), 0);
 
-  ebo = new EBO(indices);
+  _impl->ebo = new EBO(indices);
 
-  dib = new DIB(cmdBuffer.data(),
-                cmdBuffer.size() * sizeof(DrawElementsIndirectCommand));
+  _impl->dib = new DIB(_impl->cmdBuffer.data(),
+                       _impl->cmdBuffer.size() *
+                           sizeof(DrawElementsIndirectCommand));
 
-  vao->Unbind();
-  vbo->Unbind();
-  ebo->Unbind();
-  dib->Unbind();
+  _impl->vao->Unbind();
+  _impl->vbo->Unbind();
+  _impl->ebo->Unbind();
+  _impl->dib->Unbind();
 }
 
 int auFontRenderer::auDraw(std::string letter) {
-  shaders.Activate();
+  _impl->shaders.Activate();
 
-  shaders.SetVec2("position", position.x, position.y);
-  shaders.SetFloat("uPtSize", static_cast<float>(size));
-  shaders.SetInt("uEM_size", face->units_per_EM);
-  shaders.SetVec2("uScreenSize", static_cast<float>(screenWidth),
-                  static_cast<float>(screenHeight));
+  _impl->shaders.SetVec2("position", _impl->position.x, _impl->position.y);
+  _impl->shaders.SetFloat("uPtSize", static_cast<float>(_impl->size));
+  _impl->shaders.SetInt("uEM_size", _impl->face->units_per_EM);
+  _impl->shaders.SetVec2("uScreenSize", static_cast<float>(_impl->screenWidth),
+                         static_cast<float>(_impl->screenHeight));
 
-  offsetBuffer = {0, 0};
+  _impl->offsetBuffer = {0, 0};
 
-  vao->Bind();
-  dib->Bind();
+  _impl->vao->Bind();
+  _impl->dib->Bind();
 
   for (unsigned char c : letter) {
-    shaders.SetVec2("offset", static_cast<float>(offsetBuffer.x),
-                    static_cast<float>(offsetBuffer.y));
+    _impl->shaders.SetVec2("offset", static_cast<float>(_impl->offsetBuffer.x),
+                           static_cast<float>(_impl->offsetBuffer.y));
 
     glMultiDrawElementsIndirect(
         GL_TRIANGLES, GL_UNSIGNED_INT,
@@ -159,14 +212,14 @@ int auFontRenderer::auDraw(std::string letter) {
                                  sizeof(DrawElementsIndirectCommand)),
         1, sizeof(DrawElementsIndirectCommand));
 
-    offsetBuffer.x += listOffset[c].x;
-    offsetBuffer.y += listOffset[c].y;
+    _impl->offsetBuffer.x += _impl->listOffset[c].x;
+    _impl->offsetBuffer.y += _impl->listOffset[c].y;
   }
 
   return 0;
 }
 
-void auFontRenderer::clearBuffer() {
+void auFontRenderer::Impl::clearBuffer() {
   if (vao != NULL) {
     delete vao;
     vao = nullptr;
@@ -188,11 +241,11 @@ void auFontRenderer::clearBuffer() {
   }
 }
 
-void auFontRenderer::framebuffer_size_callback(GLFWwindow *window, int width,
-                                               int height) {
+void auFontRenderer::Impl::framebuffer_size_callback(GLFWwindow *window,
+                                                     int width, int height) {
   glViewport(0, 0, width, height);
   // IA magic need to better understand how it works
-  auto *self = static_cast<auFontRenderer *>(glfwGetWindowUserPointer(window));
+  auto *self = static_cast<Impl *>(glfwGetWindowUserPointer(window));
   self->shaders.Activate();
   self->shaders.SetVec2("uScreenSize", width, height);
 }

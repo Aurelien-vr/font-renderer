@@ -48,7 +48,7 @@ build/
 # vim session
 *.vim
 *.nvim
-*.vscode
+.vscode/
 
 # vim swap files
 *.swp

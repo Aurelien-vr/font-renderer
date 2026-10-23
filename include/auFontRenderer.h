@@ -2,7 +2,7 @@
 #include "../lib/freetype2/freetype/fttypes.h"
 #include "DrawElementsIndirectCommand.h"
 #include "Shader.h"
-#include "auCharacter.h"
+#include "auGlyph.h"
 #include <freetype/ftimage.h>
 #include <ft2build.h>
 #include <string>
@@ -20,14 +20,14 @@
 #include "auColor.h"
 #include "auVector2.h"
 
-class auFontRendering {
+class auFontRenderer {
 public:
   GLFWwindow *window;
   Shader shaders;
 
-  auFontRendering(GLFWwindow *window, auVector2 position, int size,
-                  auColor color);
-  ~auFontRendering();
+  auFontRenderer(GLFWwindow *window, auVector2 position, int size,
+                 auColor color);
+  ~auFontRenderer();
 
   void loadFont();
   int auSetText(std::string text);

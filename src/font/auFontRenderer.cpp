@@ -1,4 +1,4 @@
-#include "auFontRendering.h"
+#include "auFontRenderer.h"
 #include "../lib/freetype2/freetype/freetype.h"
 #include "../lib/freetype2/freetype/fttypes.h"
 #include "DIB.h"
@@ -6,7 +6,7 @@
 #include "Shader.h"
 #include "VAO.h"
 #include "VBO.h"
-#include "auCharacter.h"
+#include "auGlyph.h"
 #include "liberation_sans.h"
 
 #include <GLFW/glfw3.h>
@@ -15,11 +15,11 @@
 #include <numeric>
 #include <vector>
 
-auFontRendering::auFontRendering(GLFWwindow *window, auVector2 position,
-                                 int size, auColor color)
-    : window(window), position(position), size(size), color(color),
-      shaders("../src/ressources/default.vert",
-              "../src/ressources/default.frag") {
+auFontRenderer::auFontRenderer(GLFWwindow *window, auVector2 position, int size,
+                               auColor color)
+    : window(window),
+      shaders("ressources/default.vert", "ressources/default.frag"), size(size),
+      position(position), color(color) {
 
   glfwSetWindowUserPointer(window, this);
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -28,7 +28,7 @@ auFontRendering::auFontRendering(GLFWwindow *window, auVector2 position,
   auLoadFace();
 }
 
-auFontRendering::~auFontRendering() {
+auFontRenderer::~auFontRenderer() {
   shaders.Delete();
   if (face)
     FT_Done_Face(face);
@@ -45,28 +45,39 @@ auFontRendering::~auFontRendering() {
   dib = nullptr;
 }
 
-int auFontRendering::auInitFreeType() { return !FT_Init_FreeType(&library); }
+int auFontRenderer::auInitFreeType() { return !FT_Init_FreeType(&library); }
 
-int auFontRendering::auLoadFace() {
+int auFontRenderer::auLoadFace() {
+  if (face) {
+    FT_Done_Face(face);
+    face = nullptr;
+  }
   return FT_New_Memory_Face(library, LiberationMono_Regular_ttf,
                             LiberationMono_Regular_ttf_len, 0, &face);
 }
 
-int auFontRendering::auLoadFace(std::string path) {
+int auFontRenderer::auLoadFace(std::string path) {
+  if (face) {
+    FT_Done_Face(face);
+    face = nullptr;
+  }
   return FT_New_Face(library, path.c_str(), 0, &face);
 }
 
-int auFontRendering::getGlyph(FT_ULong charcode) {
+int auFontRenderer::getGlyph(FT_ULong charcode) {
   FT_UInt index = FT_Get_Char_Index(face, charcode);
   return FT_Load_Glyph(
       face, index, FT_LOAD_NO_BITMAP | FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING);
 }
 
-void auFontRendering::loadFont() {
-
-  int offset = 0;
+void auFontRenderer::loadFont() {
 
   clearBuffer();
+  int offset = 0;
+  sentence.clear();
+  listCharacters.clear();
+  listOffset.clear();
+  cmdBuffer.clear();
 
   glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
 
@@ -124,7 +135,7 @@ void auFontRendering::loadFont() {
   dib->Unbind();
 }
 
-int auFontRendering::auDraw(std::string letter) {
+int auFontRenderer::auDraw(std::string letter) {
   shaders.Activate();
 
   shaders.SetVec2("position", position.x, position.y);
@@ -155,7 +166,7 @@ int auFontRendering::auDraw(std::string letter) {
   return 0;
 }
 
-void auFontRendering::clearBuffer() {
+void auFontRenderer::clearBuffer() {
   if (vao != NULL) {
     delete vao;
     vao = nullptr;
@@ -177,11 +188,11 @@ void auFontRendering::clearBuffer() {
   }
 }
 
-void auFontRendering::framebuffer_size_callback(GLFWwindow *window, int width,
-                                                int height) {
+void auFontRenderer::framebuffer_size_callback(GLFWwindow *window, int width,
+                                               int height) {
   glViewport(0, 0, width, height);
   // IA magic need to better understand how it works
-  auto *self = static_cast<auFontRendering *>(glfwGetWindowUserPointer(window));
+  auto *self = static_cast<auFontRenderer *>(glfwGetWindowUserPointer(window));
   self->shaders.Activate();
   self->shaders.SetVec2("uScreenSize", width, height);
 }

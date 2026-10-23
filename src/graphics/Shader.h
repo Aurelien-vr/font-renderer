@@ -1,5 +1,5 @@
 #pragma once
-#include "../lib/glad.h"
+#include "glad.h"
 #include <string>
 
 std::string readShaderFile(const std::string &filePath);

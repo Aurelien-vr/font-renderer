@@ -10,7 +10,8 @@ struct GLFWwindow;
 class auFontRenderer {
 public:
   auFontRenderer(GLFWwindow *window, auVector2 position, int size,
-                 auColor color);
+                 auColor color,
+                 const std::string &shader_directory = "ressources");
   ~auFontRenderer();
 
   void loadFont();

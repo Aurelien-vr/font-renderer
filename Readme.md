@@ -75,7 +75,14 @@ font.loadFont();
 font.auDraw("Hello");
 ```
 
-The renderer must be used while the window's OpenGL context is current.
+The renderer must be used while the window's OpenGL context is current. The
+optional last constructor argument selects the directory containing
+`default.vert` and `default.frag`; pass an absolute or application-relative
+path when the process is not started from the build directory:
+
+```cpp
+auFontRenderer font(window, {100, 300}, 64, {1, 1, 1}, "/path/to/ressources");
+```
 
 ## Project status
 

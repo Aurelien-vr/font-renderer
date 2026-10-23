@@ -13,15 +13,20 @@
 
 #include <GLFW/glfw3.h>
 #include <cstddef>
+#include <filesystem>
 #include <freetype/ftimage.h>
 #include <numeric>
 #include <vector>
 
 class auFontRenderer::Impl {
 public:
-  Impl(GLFWwindow *window, auVector2 position, int size, auColor color)
+  Impl(GLFWwindow *window, auVector2 position, int size, auColor color,
+       const std::string &shader_directory)
       : window(window),
-        shaders("ressources/default.vert", "ressources/default.frag"),
+        shaders((std::filesystem::path(shader_directory) / "default.vert")
+                    .string(),
+                (std::filesystem::path(shader_directory) / "default.frag")
+                    .string()),
         size(size), position(position), color(color) {}
 
   GLFWwindow *window;
@@ -64,8 +69,10 @@ public:
 };
 
 auFontRenderer::auFontRenderer(GLFWwindow *window, auVector2 position, int size,
-                               auColor color)
-    : _impl(std::make_unique<Impl>(window, position, size, color)) {
+                               auColor color,
+                               const std::string &shader_directory)
+    : _impl(
+          std::make_unique<Impl>(window, position, size, color, shader_directory)) {
 
   glfwSetWindowUserPointer(window, _impl.get());
   glfwSetFramebufferSizeCallback(window, Impl::framebuffer_size_callback);

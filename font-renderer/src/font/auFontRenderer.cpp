@@ -1,6 +1,6 @@
 #include "auFontRenderer.h"
-#include "../lib/freetype2/freetype/freetype.h"
-#include "../lib/freetype2/freetype/fttypes.h"
+#include <freetype/freetype.h>
+#include <freetype/fttypes.h>
 #include "DIB.h"
 #include "DrawElementsIndirectCommand.h"
 #include "Shader.h"

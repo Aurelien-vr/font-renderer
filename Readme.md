@@ -34,7 +34,9 @@ Or use the included build script:
 ./build.sh
 ```
 
-The executable is generated in the `build` directory.
+The static library is generated in the `build` directory as
+`libfont_renderer.a`. The `src/main.cpp` file is kept as a reference/demo
+entry point but is not built by the project.
 
 ## Project status
 

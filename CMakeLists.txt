@@ -22,8 +22,6 @@ find_package(glfw3 3.4 REQUIRED)
 find_package(Freetype REQUIRED)
 
 set(PROJECT_SOURCES
-    src/main.cpp
-
     src/glad.c
 
     src/graphics/Shader.cpp
@@ -46,13 +44,14 @@ set_source_files_properties(
         COMPILE_OPTIONS "-w"
 )
 
-add_executable(font_renderer
+add_library(font_renderer STATIC
     ${PROJECT_SOURCES}
 )
 
 target_include_directories(font_renderer
-    PRIVATE
+    PUBLIC
         ${PROJECT_SOURCE_DIR}/include
+    PRIVATE
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/src/font
         ${PROJECT_SOURCE_DIR}/src/graphics
@@ -61,10 +60,11 @@ target_include_directories(font_renderer
 )
 
 target_link_libraries(font_renderer
-    PRIVATE
+    PUBLIC
         glfw
-        OpenGL::GL
         Freetype::Freetype
+    PRIVATE
+        OpenGL::GL
 )
 
 target_compile_options(font_renderer
@@ -87,23 +87,3 @@ if(ENABLE_ASAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
     )
 endif()
-
-# Copy shader files beside the executable.
-add_custom_command(TARGET font_renderer POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-        "$<TARGET_FILE_DIR:font_renderer>/ressources"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${PROJECT_SOURCE_DIR}/src/ressources/default.vert"
-        "$<TARGET_FILE_DIR:font_renderer>/ressources/default.vert"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${PROJECT_SOURCE_DIR}/src/ressources/default.frag"
-        "$<TARGET_FILE_DIR:font_renderer>/ressources/default.frag"
-)
-
-add_custom_target(run
-    COMMAND font_renderer
-    DEPENDS font_renderer
-    WORKING_DIRECTORY "$<TARGET_FILE_DIR:font_renderer>"
-)

@@ -1,8 +1,8 @@
 #include <string>
 #include <sys/types.h>
 #define GLFW_INCLUDE_NONE
-#include "../lib/GLFW/glfw3.h"
-#include "../lib/glad.h"
+#include <GLFW/glfw3.h>
+#include <glad.h>
 #include "Shader.h"
 #include "auFontRenderer.h"
 #include <cmath>

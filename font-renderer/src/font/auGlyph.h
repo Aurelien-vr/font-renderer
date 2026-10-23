@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../lib/freetype2/freetype/freetype.h"
-#include "../lib/freetype2/freetype/ftimage.h"
-#include "../lib/freetype2/freetype/fttypes.h"
+#include <freetype/freetype.h>
+#include <freetype/ftimage.h>
+#include <freetype/fttypes.h>
 #include "auVector2.h"
 #include <freetype/ftimage.h>
 #include <vector>

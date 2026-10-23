@@ -1,5 +1,5 @@
 #pragma once
-#include "../lib/freetype2/freetype/fttypes.h"
+#include <freetype/fttypes.h>
 #include "DrawElementsIndirectCommand.h"
 #include "Shader.h"
 #include "auGlyph.h"
@@ -15,7 +15,7 @@
 
 #include FT_FREETYPE_H
 
-#include "../lib/GLFW/glfw3.h"
+#include <GLFW/glfw3.h>
 #include "DIB.h"
 #include "auColor.h"
 #include "auVector2.h"

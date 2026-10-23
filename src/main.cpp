@@ -38,8 +38,9 @@ int main() {
 
   glViewport(0, 0, 800, 600);
 
-  double currentTimeStamp;
-  float fps = 0;
+  double fpsTimer = glfwGetTime();
+  int frameCount = 0;
+  float fps = 0.0f;
 
   auFontRenderer font = auFontRenderer(window, {100, 300}, 64, {1, 1, 1});
   font.loadFont();
@@ -52,20 +53,23 @@ int main() {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     // 2. then draw
+    static std::string fpsText = "FPS: 0";
+
+    frameCount++;
+
     double currentTime = glfwGetTime();
-    double seconds = currentTime - currentTimeStamp;
-    fps = 1 / seconds;
-    currentTimeStamp = currentTime;
+    double elapsed = currentTime - fpsTimer;
 
-    static int lastSecond = -1;
-    static std::string fpsText;
+    if (elapsed >= 1.0) {
+      fps = static_cast<float>(frameCount / elapsed);
 
-    if (static_cast<int>(currentTime) != lastSecond) {
-      lastSecond = static_cast<int>(currentTime);
       fpsText = std::to_string(static_cast<int>(std::lround(fps)));
+
+      frameCount = 0;
+      fpsTimer = currentTime;
     }
 
-    font.auDraw("A");
+    font.auDraw(fpsText);
 
     glfwSwapBuffers(window);
     glfwPollEvents();

@@ -3,7 +3,6 @@
 #include "earClipping.h"
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 #include <freetype/ftimage.h>
 #include <iostream>
 #include <sys/types.h>
